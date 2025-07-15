@@ -1163,12 +1163,13 @@ SEXP eval(SEXP e, SEXP rho)
 #endif
 
     switch (TYPEOF(e)) {
-	case EXTPTRSXP:
-	if(IS_RCP_PTR(e))
-	    tmp = rcpEval(e, rho);
-	else
-	    tmp = e;
-	break;
+    case EXTPTRSXP:
+      if (RSH_IS_CLOSURE_BODY(e)) {
+	      tmp = rcpEval(e, rho);
+      } else {
+	      tmp = e;
+      }
+    break;
     case BCODESXP:
 	tmp = bcEval(e, rho);
 	    break;
@@ -1603,7 +1604,7 @@ static R_INLINE Rboolean R_CheckJIT(SEXP fun)
 
     SEXP body = BODY(fun);
 
-    if (R_jit_enabled > 0 && !IS_RCP_PTR(body) && TYPEOF(body) != BCODESXP &&
+    if (R_jit_enabled > 0 && (TYPEOF(body) != EXTPTRSXP || !RSH_IS_CLOSURE_BODY(body)) && TYPEOF(body) != BCODESXP &&
 	! R_disable_bytecode && ! NOJIT(fun)) {
 
 	if (MAYBEJIT(fun)) {
@@ -2237,7 +2238,7 @@ static R_INLINE SEXP handle_exec_continuation(SEXP val)
 static R_INLINE SEXP R_execClosure(SEXP call, SEXP newrho, SEXP sysparent,
                                    SEXP rho, SEXP arglist, SEXP op);
 
-static SEXP make_applyClosure_env(SEXP call, SEXP op, SEXP arglist, SEXP rho,
+SEXP make_applyClosure_env(SEXP call, SEXP op, SEXP arglist, SEXP rho,
 				  SEXP suppliedvars)
 {
     SEXP formals, actuals, savedrho, newrho;

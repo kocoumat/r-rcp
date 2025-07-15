@@ -396,7 +396,7 @@ attribute_hidden SEXP ALTVEC_EXTRACT_SUBSET(SEXP x, SEXP indx, SEXP call)
  * Typed ALTVEC support
  */
 
-attribute_hidden int ALTINTEGER_ELT(SEXP x, R_xlen_t i)
+int ALTINTEGER_ELT(SEXP x, R_xlen_t i)
 {
     return ALTINTEGER_DISPATCH(Elt, x, i);
 }
@@ -426,7 +426,7 @@ int INTEGER_NO_NA(SEXP x)
     return ALTREP(x) ? ALTINTEGER_DISPATCH(No_NA, x) : 0;
 }
 
-attribute_hidden double ALTREAL_ELT(SEXP x, R_xlen_t i)
+double ALTREAL_ELT(SEXP x, R_xlen_t i)
 {
     return ALTREAL_DISPATCH(Elt, x, i);
 }
@@ -624,12 +624,12 @@ attribute_hidden SEXP ALTLOGICAL_SUM(SEXP x, Rboolean narm)
     return ALTLOGICAL_DISPATCH(Sum, x, narm);
 }
 
-attribute_hidden int ALTLOGICAL_ELT(SEXP x, R_xlen_t i)
+int ALTLOGICAL_ELT(SEXP x, R_xlen_t i)
 {
     return ALTLOGICAL_DISPATCH(Elt, x, i);
 }
 
-attribute_hidden Rcomplex ALTCOMPLEX_ELT(SEXP x, R_xlen_t i)
+Rcomplex ALTCOMPLEX_ELT(SEXP x, R_xlen_t i)
 {
     return ALTCOMPLEX_DISPATCH(Elt, x, i);
 }

@@ -211,6 +211,12 @@ typedef struct SEXPREC *SEXP;
 // - copied from Defn.h
 // ====================================================================
 
+typedef SEXP (*Rsh_closure)(SEXP, SEXP);
+
+LibExtern SEXP Rsh_ClosureBodyTag;
+
+#define RSH_IS_CLOSURE_BODY(e) (R_ExternalPtrTag((e)) == Rsh_ClosureBodyTag)
+
 // ======================= USE_RINTERNALS section
 #ifdef USE_RINTERNALS
 /* This is intended for use only within R itself.
@@ -1962,6 +1968,9 @@ void SET_SCALAR_CVAL(SEXP x, Rcomplex v);
 void SET_SCALAR_BVAL(SEXP x, Rbyte v);
 #endif
 
+int (BNDCELL_TAG)(SEXP e);
+
+#ifdef USE_RINTERNALS
 #ifdef IMMEDIATE_PROMISE_VALUES
 # define PRVALUE0(x) ((x)->u.promsxp.value)
 # define PRVALUE(x) \
@@ -1975,6 +1984,7 @@ void SET_SCALAR_BVAL(SEXP x, Rbyte v);
 # define PRVALUE(x) PRVALUE0(x)
 # define PROMISE_IS_EVALUATED(x) (PRVALUE(x) != R_UnboundValue)
 # define PROMISE_TAG(x) 0
+#endif
 #endif
 
 int Rf_asLogical2(SEXP x, int checking, SEXP call);
@@ -2014,6 +2024,70 @@ typedef struct {
 SEXP R_expand_promise_value(SEXP);
 #endif
 
+# include <setjmp.h>
+# define JMP_BUF sigjmp_buf
+typedef struct R_bcFrame R_bcFrame_type;
+/* Evaluation Context Structure */
+typedef struct RCNTXT {
+    struct RCNTXT *nextcontext;	/* The next context up the chain */
+    int callflag;		/* The context "type" */
+    JMP_BUF cjmpbuf;		/* C stack and register information */
+    int cstacktop;		/* Top of the pointer protection stack */
+    int evaldepth;	        /* evaluation depth at inception */
+    SEXP promargs;		/* Promises supplied to closure */
+    SEXP callfun;		/* The closure called */
+    SEXP sysparent;		/* environment the closure was called from */
+    SEXP call;			/* The call that effected this context*/
+    SEXP cloenv;		/* The environment */
+    SEXP conexit;		/* Interpreted "on.exit" code */
+    void (*cend)(void *);	/* C "on.exit" thunk */
+    void *cenddata;		/* data for C "on.exit" thunk */
+    void *vmax;		        /* top of R_alloc stack */
+    int intsusp;                /* interrupts are suspended */
+    int gcenabled;		/* R_GCEnabled value */
+    int bcintactive;            /* R_BCIntActive value */
+    SEXP bcbody;                /* R_BCbody value */
+    void* bcpc;                 /* R_BCpc value */
+    ptrdiff_t relpc;            /* pc offset when begincontext is called */
+    SEXP handlerstack;          /* condition handler stack */
+    SEXP restartstack;          /* stack of available restarts */
+    struct RPRSTACK *prstack;   /* stack of pending promises */
+    R_bcstack_t *nodestack;
+    R_bcstack_t *bcprottop;
+    R_bcFrame_type *bcframe;
+    SEXP srcref;	        /* The source line in effect */
+    int browserfinish;          /* should browser finish this context without
+                                   stopping */
+    R_bcstack_t returnValue;    /* only set during on.exit calls */
+    struct RCNTXT *jumptarget;	/* target for a continuing jump */
+    int jumpmask;               /* associated LONGJMP argument */
+} RCNTXT, *context;
+
+/* The Various Context Types.
+
+ * In general the type is a bitwise OR of the values below.
+ * Note that CTXT_LOOP is already the or of CTXT_NEXT and CTXT_BREAK.
+ * Only functions should have the third bit turned on;
+ * this allows us to move up the context stack easily
+ * with either RETURN's or GENERIC's or RESTART's.
+ * If you add a new context type for functions make sure
+ *   CTXT_NEWTYPE & CTXT_FUNCTION > 0
+ */
+enum {
+    CTXT_TOPLEVEL = 0,
+    CTXT_NEXT     = 1,
+    CTXT_BREAK    = 2,
+    CTXT_LOOP     = 3,        /* break OR next target */
+    CTXT_FUNCTION = 4,
+    CTXT_CCODE    = 8,
+    CTXT_RETURN   = 12,
+    CTXT_BROWSER  = 16,
+    CTXT_GENERIC  = 20,
+    CTXT_RESTART  = 32,
+    CTXT_BUILTIN  = 64, /* used in profiling */
+    CTXT_UNWIND   = 128
+};
+
 // ====================================================================
 // RPC (copy-and-patch)
 // ====================================================================
@@ -2037,10 +2111,6 @@ typedef struct rcp_exec_ptrs
 } rcp_exec_ptrs;
 
 void R_RcpFree(SEXP);
-
-#define RCP_PTRTAG "rcp_exec_ptrs"
-
-#define IS_RCP_PTR(fun) (TYPEOF(fun) == EXTPTRSXP && strcmp(CHAR(PRINTNAME(EXTPTR_TAG(fun))), RCP_PTRTAG) == 0)
 
 // ====================================================================
 // END RSH CHANGES

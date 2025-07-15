@@ -4952,7 +4952,7 @@ attribute_hidden void R_FreeStringBufferL(R_StringBuffer *buf)
 
 void R_RcpFree(SEXP ptr)
 {
-    if(!IS_RCP_PTR(ptr))
+    if(TYPEOF(ptr) != EXTPTRSXP || !RSH_IS_CLOSURE_BODY(ptr))
 	error("Attemted to free a non-rcp pointer");
 
     rcp_exec_ptrs* ptrs = (rcp_exec_ptrs*)EXTPTR_PTR(ptr);
